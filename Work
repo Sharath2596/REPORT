@@ -1,33 +1,68 @@
 import pandas as pd
 
-def smart_detect_and_read(file_path):
+def smart_detect_and_read(file_path, skip_rows=4):
     with open(file_path, 'rb') as f:
         header = f.read(8)
 
     try:
         if header.startswith(b'PK'):
             print(f"Detected: {file_path} is actually an XLSX (zip-based).")
-            return pd.read_excel(file_path, engine='openpyxl')
-
+            df = pd.read_excel(file_path, engine='openpyxl', skiprows=skip_rows)
         elif header.startswith(b'\xD0\xCF\x11\xE0'):
             print(f"Detected: {file_path} is a real XLS (Excel 97-2003 binary).")
-            return pd.read_excel(file_path, engine='xlrd')
-
+            df = pd.read_excel(file_path, engine='xlrd', skiprows=skip_rows)
         else:
             print(f"Detected: {file_path} is likely a CSV or unknown, trying CSV...")
-            return pd.read_csv(file_path)
+            df = pd.read_csv(file_path, skiprows=skip_rows)
+
+        return df
 
     except Exception as e:
         print(f"[ERROR] Cannot open {file_path}: {e}")
         return None
 
-# === Test your file path here ===
+
+def convert_to_tab_delimited_csv(input_file, skip_rows=4):
+    try:
+        # Read the file, skip the unwanted header rows
+        df = pd.read_csv(input_file, skiprows=skip_rows, engine='python')
+
+        # Wrap all string-type columns with single quotes
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].apply(lambda x: f"'{x}'" if pd.notna(x) else x)
+
+        # Output path
+        output_file = input_file.replace(".xls", "_tabbed.csv")
+
+        # Write as .csv, tab-delimited, no index
+        df.to_csv(output_file, sep='\t', index=False, quoting=3)  # quoting=3 means no extra quotes
+
+        print(f"[SUCCESS] Saved tab-delimited CSV at: {output_file}")
+
+    except Exception as e:
+        print(f"[ERROR] {e}")
+
+
+# === Your file path ===
 file_path = r"C:\Users\sharu\Downloads\Work\Input\ECHIREPORT_1-3-2025_17-54-42.xls"
 
-df = smart_detect_and_read(file_path)
+# === Load data while skipping 4 rows ===
+df = smart_detect_and_read(file_path, skip_rows=4)
 
 if df is not None:
-    print(f"\nFile Loaded Successfully! Shape: {df.shape}")
+    print(f"\nData Loaded! Shape: {df.shape}")
+    print("\n--- Sample Preview ---")
     print(df.head())
+
+    # === Export as tab-delimited file ===
+    output_path = r"C:\Users\sharu\Downloads\Work\Output\ECHIREPORT_Converted.txt"
+    df.to_csv(output_path, sep='\t', index=False)
+
+    print(f"\nSaved tab-delimited file to:\n{output_path}")
+
+    # === Convert the file to tab-delimited CSV with single quotes ===
+    convert_to_tab_delimited_csv(file_path)
+
 else:
-    print("Failed to load the file.")
+    print("Data could not be loaded.")
+
