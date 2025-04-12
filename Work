@@ -1,0 +1,33 @@
+import pandas as pd
+
+def smart_detect_and_read(file_path):
+    with open(file_path, 'rb') as f:
+        header = f.read(8)
+
+    try:
+        if header.startswith(b'PK'):
+            print(f"Detected: {file_path} is actually an XLSX (zip-based).")
+            return pd.read_excel(file_path, engine='openpyxl')
+
+        elif header.startswith(b'\xD0\xCF\x11\xE0'):
+            print(f"Detected: {file_path} is a real XLS (Excel 97-2003 binary).")
+            return pd.read_excel(file_path, engine='xlrd')
+
+        else:
+            print(f"Detected: {file_path} is likely a CSV or unknown, trying CSV...")
+            return pd.read_csv(file_path)
+
+    except Exception as e:
+        print(f"[ERROR] Cannot open {file_path}: {e}")
+        return None
+
+# === Test your file path here ===
+file_path = r"C:\Users\sharu\Downloads\Work\Input\ECHIREPORT_1-3-2025_17-54-42.xls"
+
+df = smart_detect_and_read(file_path)
+
+if df is not None:
+    print(f"\nFile Loaded Successfully! Shape: {df.shape}")
+    print(df.head())
+else:
+    print("Failed to load the file.")
